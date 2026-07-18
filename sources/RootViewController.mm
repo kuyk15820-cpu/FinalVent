@@ -395,9 +395,8 @@
 #pragma mark - GitHub Update Checker Systems
 
 - (void)checkAppUpdate {
-    // ดึงเวอร์ชันปัจจุบันของแอปพลิเคชันจาก Info.plist
-    NSString *currentVersion = [[[NSBundle mainBundle] infoDictionary] objectForKey:[NSString stringWithUTF8String:AY_OBFUSCATE("CFBundleShortVersionString")]];
-    if (!currentVersion) currentVersion = [NSString stringWithUTF8String:AY_OBFUSCATE("1.0.0")];
+    // วิธีที่ 2: ล็อกเวอร์ชันปัจจุบันตายตัวไว้ใน Binary ห้ามแก้ไขจากภายนอก
+    NSString *currentVersion = [NSString stringWithUTF8String:AY_OBFUSCATE("1.0.0")];
 
     // URL สำหรับเรียกเช็ค Releases ล่าสุดผ่านทาง GitHub API พร้อมเพิ่มตัวแปรเวลาเพื่อเลี่ยง Cache แบบ 100%
     NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970];
@@ -419,8 +418,8 @@
             latestTag = [latestTag substringFromIndex:1];
         }
         
-        // ตรวจสอบเปรียบเทียบว่าเวอร์ชันของ GitHub ใหม่กว่าเครื่องปัจจุบันหรือไม่
-        if ([latestTag compare:currentVersion options:NSNumericSearch] == NSOrderedDescending) {
+        // วิธีที่ 1: ตรวจสอบเปรียบเทียบว่าเวอร์ชันของ GitHub ไม่ตรงกับเครื่องปัจจุบันหรือไม่ (ถ้าไม่เท่ากันให้เด้งอัปเดตทันที)
+        if (![latestTag isEqualToString:currentVersion]) {
             NSArray *assets = releaseInfo[[NSString stringWithUTF8String:AY_OBFUSCATE("assets")]];
             if (assets && assets.count > 0) {
                 
