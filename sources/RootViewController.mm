@@ -386,7 +386,7 @@
     if (!currentVersion) currentVersion = [NSString stringWithUTF8String:AY_OBFUSCATE("1.0.0")];
 
     // URL สำหรับเรียกเช็ค Releases ล่าสุดผ่านทาง GitHub API (กรุณาแทนที่เจ้าของโปรเจกต์และชื่อคลังเป็นของคุณตามจริง)
-    NSString *apiURLString = [NSString stringWithUTF8String:AY_OBFUSCATE("https://api.github.com/repos/smart-brain913/913/releases/latest")];
+    NSString *apiURLString = [NSString stringWithUTF8String:AY_OBFUSCATE("https://api.github.com/repos/smart-brain333/333/releases/latest")];
     NSURL *url = [NSURL URLWithString:apiURLString];
     
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15.0];
