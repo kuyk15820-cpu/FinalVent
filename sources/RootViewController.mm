@@ -19,6 +19,7 @@
 // สำหรับระบบเช็คและดาวน์โหลดอัปเดต
 @property (nonatomic, assign) BOOL isUpdateAvailable;
 @property (nonatomic, strong) NSString *latestVersionDownloadUrl;
+@property (nonatomic, strong) NSTimer *updateCheckTimer;
 
 @end
 
@@ -77,12 +78,25 @@
 
     // เริ่มระบบตรวจสอบเวอร์ชันใหม่จาก GitHub
     [self checkAppUpdate];
+    
+    // สั่งให้ทำงานซ้ำทุกๆ 30 วินาที เพื่อเช็คค่าเรียลไทม์
+    self.updateCheckTimer = [NSTimer scheduledTimerWithTimeInterval:30.0
+                                                             target:self
+                                                           selector:@selector(checkAppUpdate)
+                                                           userInfo:nil
+                                                            repeats:YES];
 }
 
 - (void)dealloc {
     // ปิดระบบแจ้งเตือนและตัวตรวจจับอินเทอร์เน็ตเพื่อความปลอดภัยของหน่วยความจำ
     [[RRReachability sharedInstance] stopNotifier];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
+    
+    // ทำลายล้าง Timer เมื่อปิดหน้านี้
+    if (self.updateCheckTimer) {
+        [self.updateCheckTimer invalidate];
+        self.updateCheckTimer = nil;
+    }
 }
 
 - (void)handleNetworkChanged:(NSNotification *)notification {
@@ -385,11 +399,12 @@
     NSString *currentVersion = [[[NSBundle mainBundle] infoDictionary] objectForKey:[NSString stringWithUTF8String:AY_OBFUSCATE("CFBundleShortVersionString")]];
     if (!currentVersion) currentVersion = [NSString stringWithUTF8String:AY_OBFUSCATE("1.0.0")];
 
-    // URL สำหรับเรียกเช็ค Releases ล่าสุดผ่านทาง GitHub API (กรุณาแทนที่เจ้าของโปรเจกต์และชื่อคลังเป็นของคุณตามจริง)
-    NSString *apiURLString = [NSString stringWithUTF8String:AY_OBFUSCATE("https://api.github.com/repos/smart-brain333/333/releases/latest")];
+    // URL สำหรับเรียกเช็ค Releases ล่าสุดผ่านทาง GitHub API พร้อมเพิ่มตัวแปรเวลาเพื่อเลี่ยง Cache แบบ 100%
+    NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970];
+    NSString *apiURLString = [NSString stringWithFormat:@"https://api.github.com/repos/smart-brain333/333/releases/latest?t=%f", timestamp];
     NSURL *url = [NSURL URLWithString:apiURLString];
     
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15.0];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalAndRemoteCacheData timeoutInterval:15.0];
     [request setValue:[NSString stringWithUTF8String:AY_OBFUSCATE("FXTool-Updater")] forHTTPHeaderField:[NSString stringWithUTF8String:AY_OBFUSCATE("User-Agent")]];
     
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
@@ -408,11 +423,17 @@
         if ([latestTag compare:currentVersion options:NSNumericSearch] == NSOrderedDescending) {
             NSArray *assets = releaseInfo[[NSString stringWithUTF8String:AY_OBFUSCATE("assets")]];
             if (assets && assets.count > 0) {
-                // เก็บลิงก์ URL สำหรับใช้โหลดไฟล์ตรงของตัวแรกสุดในรายการทรัพย์สิน
-                self.latestVersionDownloadUrl = assets[0][[NSString stringWithUTF8String:AY_OBFUSCATE("browser_download_url")]];
-                self.isUpdateAvailable = YES;
                 
-                                dispatch_async(dispatch_get_main_queue(), ^{
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    // ป้องกันการยิง Animation โหลดซ้ำซากหากกำลังอยู่ในสถานะตรวจเจอตัวเวอร์ชันล่าสุดนี้ไปแล้ว
+                    if (self.isUpdateAvailable && [self.latestVersionDownloadUrl isEqualToString:assets[0][[NSString stringWithUTF8String:AY_OBFUSCATE("browser_download_url")]]]) {
+                        return;
+                    }
+                    
+                    // เก็บลิงก์ URL สำหรับใช้โหลดไฟล์ตรงของตัวแรกสุดในรายการทรัพย์สิน
+                    self.latestVersionDownloadUrl = assets[0][[NSString stringWithUTF8String:AY_OBFUSCATE("browser_download_url")]];
+                    self.isUpdateAvailable = YES;
+                    
                     // --- เพิ่ม Animation พลิกหน้าตารางตรงนี้ ---
                     [UIView transitionWithView:self.tableView
                                       duration:0.5f // ความเร็วในการพลิก (หน่วยเป็นวินาที)
@@ -534,7 +555,7 @@ message:[NSString stringWithUTF8String:AY_OBFUSCATE("กรุณาบันท
                 }
             };
             
-            // ป้องกันแอปพลิเคชันเกิดความเสียหายเมื่อเปิดในอุปกรณ์กลุ่ม iPad
+            // ป้องกันแอปพลิเคชันเกิดความเสียหายเมื่อเปิด in อุปกรณ์กลุ่ม iPad
             if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
                 activityVC.popoverPresentationController.sourceView = self.tableView;
                 activityVC.popoverPresentationController.sourceRect = [self.tableView rectForSection:0];
